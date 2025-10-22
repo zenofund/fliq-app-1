@@ -136,6 +136,12 @@ async function handleCreateBooking(req, res, user) {
       })
     }
 
+    // Validate duration is a number
+    const durationNum = parseInt(duration)
+    if (isNaN(durationNum) || durationNum < 1) {
+      return res.status(400).json({ message: 'Duration must be at least 1 hour' })
+    }
+
     // Validate date is in the future
     const bookingDate = new Date(`${date}T${time}`)
     if (bookingDate < new Date()) {
@@ -143,15 +149,36 @@ async function handleCreateBooking(req, res, user) {
     }
 
     // TODO: Check companion availability
+    // Fetch companion's availability schedule from database
+    // const availability = await db.query('SELECT schedule FROM companion_availability WHERE companion_id = ?', [companionId])
+    
     // TODO: Check for conflicting bookings
+    // const existingBookings = await db.query(
+    //   'SELECT * FROM bookings WHERE companion_id = ? AND date = ? AND status NOT IN (?, ?)',
+    //   [companionId, date, 'cancelled', 'rejected']
+    // )
+    
+    // Use calendar utility to check conflicts
+    // const { hasBookingConflict } = require('../../../lib/calendar')
+    // const newBooking = { date, time, duration: durationNum }
+    // if (hasBookingConflict(newBooking, existingBookings)) {
+    //   return res.status(409).json({ 
+    //     message: 'This time slot is not available. Please choose a different time.' 
+    //   })
+    // }
+
     // TODO: Calculate total price
+    // const companion = await db.query('SELECT hourly_rate FROM companions WHERE id = ?', [companionId])
+    // const totalPrice = companion.hourly_rate * durationNum
+
     // TODO: Create payment intent with Paystack
+    // const payment = await createPaymentIntent(totalPrice)
 
     // TODO: Insert booking into database
     // IMPORTANT: Use parameterized queries to prevent SQL injection
     // const bookingId = await db.query(
-    //   'INSERT INTO bookings (user_id, companion_id, date, time, duration, location, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    //   [user.id, companionId, date, time, duration, location, notes, 'pending']
+    //   'INSERT INTO bookings (user_id, companion_id, date, time, duration, location, notes, status, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    //   [user.id, companionId, date, time, durationNum, location, notes, 'pending', totalPrice]
     // )
 
     const newBooking = {
@@ -160,7 +187,7 @@ async function handleCreateBooking(req, res, user) {
       companionId,
       date,
       time,
-      duration,
+      duration: durationNum,
       location,
       notes,
       status: 'pending',
