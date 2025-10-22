@@ -1,0 +1,17 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/check-expired-bookings",
+      "schedule": "* * * * *"
+    }
+  ],
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "JWT_SECRET": "@jwt_secret",
+    "CRON_SECRET": "@cron_secret",
+    "PAYSTACK_SECRET_KEY": "@paystack_secret_key",
+    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "FRONTEND_URL": "@frontend_url"
+  }
+}
