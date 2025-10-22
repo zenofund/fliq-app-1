@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import crypto from 'crypto';
 import { CORS_HEADERS } from './constants';
 
 /**
@@ -46,10 +47,13 @@ export function validateMethod(
 }
 
 /**
- * Generates a unique ID with a prefix
+ * Generates a unique ID with a prefix using cryptographically secure random values
  */
 export function generateId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const timestamp = Date.now();
+  const randomBytes = crypto.getRandomValues(new Uint8Array(9));
+  const randomString = Array.from(randomBytes, (byte) => byte.toString(36)).join('').substr(0, 9);
+  return `${prefix}_${timestamp}_${randomString}`;
 }
 
 /**
