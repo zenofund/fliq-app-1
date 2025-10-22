@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { MapPin, Search, Star, Calendar, Clock, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
+import BookingModal from '../../components/booking/BookingModal'
 
 export default function ClientDashboard() {
   const [activeBookings, setActiveBookings] = useState([])
   const [nearbyCompanions, setNearbyCompanions] = useState([])
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
+  const [selectedCompanion, setSelectedCompanion] = useState(null)
 
   useEffect(() => {
     // TODO: Fetch user data, active bookings, and nearby companions
@@ -27,7 +30,7 @@ export default function ClientDashboard() {
         name: 'Emma Wilson',
         rating: 4.9,
         distance: '0.5 km',
-        price: '$50/hour',
+        hourlyRate: 50,
         image: '/placeholder.jpg'
       },
       {
@@ -35,11 +38,21 @@ export default function ClientDashboard() {
         name: 'Sophie Anderson',
         rating: 4.8,
         distance: '1.2 km',
-        price: '$45/hour',
+        hourlyRate: 45,
         image: '/placeholder.jpg'
       }
     ])
   }, [])
+
+  const handleBookNow = (companion) => {
+    setSelectedCompanion(companion)
+    setIsBookingModalOpen(true)
+  }
+
+  const handleCloseBookingModal = () => {
+    setIsBookingModalOpen(false)
+    setSelectedCompanion(null)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -192,9 +205,12 @@ export default function ClientDashboard() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-bold text-gray-900 dark:text-white">
-                          {companion.price}
+                          ${companion.hourlyRate}/hour
                         </span>
-                        <button className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg text-sm hover:shadow-lg transition-shadow">
+                        <button 
+                          onClick={() => handleBookNow(companion)}
+                          className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg text-sm hover:shadow-lg transition-shadow"
+                        >
                           Book Now
                         </button>
                       </div>
@@ -234,6 +250,13 @@ export default function ClientDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Booking Modal */}
+      <BookingModal
+        isOpen={isBookingModalOpen}
+        onClose={handleCloseBookingModal}
+        companion={selectedCompanion}
+      />
     </div>
   )
 }
