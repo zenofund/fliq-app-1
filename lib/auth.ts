@@ -1,10 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 
-const SECRET_KEY = 'your_secret_key'; // Replace with your actual secret key
+const SECRET_KEY = process.env.JWT_SECRET || 'default_secret_key_change_in_production';
 
-export const createToken = (userId: string) => {
-    return jwt.sign({ id: userId }, SECRET_KEY, { expiresIn: '1h' });
+export const createToken = (userId: string, role: string = 'client', email: string = '') => {
+    return jwt.sign({ id: userId, role, email }, SECRET_KEY, { expiresIn: '7d' });
 };
 
 export const verifyToken = (token: string) => {
