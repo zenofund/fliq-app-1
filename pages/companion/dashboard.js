@@ -130,9 +130,11 @@ export default function CompanionDashboard() {
             </div>
 
             <div className="mt-4">
-              <button className="px-6 py-2 bg-white text-pink-600 font-semibold rounded-lg hover:bg-pink-50 transition-colors">
-                Continue Setup
-              </button>
+              <Link href="/companion/availability">
+                <button className="px-6 py-2 bg-white text-pink-600 font-semibold rounded-lg hover:bg-pink-50 transition-colors">
+                  Continue Setup
+                </button>
+              </Link>
             </div>
           </motion.div>
         )}
@@ -281,12 +283,16 @@ export default function CompanionDashboard() {
                 Quick Actions
               </h3>
               <div className="space-y-3">
-                <button className="w-full px-4 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:shadow-lg transition-shadow text-left">
-                  Set Availability
-                </button>
-                <button className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
-                  Update Profile
-                </button>
+                <Link href="/companion/availability">
+                  <button className="w-full px-4 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:shadow-lg transition-shadow text-left">
+                    Set Availability
+                  </button>
+                </Link>
+                <Link href="/companion/profile">
+                  <button className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
+                    Update Profile
+                  </button>
+                </Link>
                 <button className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
                   View Analytics
                 </button>
