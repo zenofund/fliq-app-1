@@ -172,11 +172,12 @@ export default async function handler(req, res) {
 
     // Apply filters
     let filteredCompanions = allCompanions.filter(companion => {
-      // Text search in name and bio
+      // Text search in name, bio, and specialties
       const searchText = query.toLowerCase();
       const matchesQuery = !query || 
         companion.name.toLowerCase().includes(searchText) ||
-        companion.bio.toLowerCase().includes(searchText);
+        companion.bio.toLowerCase().includes(searchText) ||
+        companion.specialties.some(s => s.toLowerCase().includes(searchText));
 
       // Location filter
       const matchesLocation = !location || 
