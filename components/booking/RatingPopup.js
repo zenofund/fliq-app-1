@@ -13,8 +13,7 @@ export default function RatingPopup({ isOpen, onClose, booking }) {
     setIsLoading(true)
 
     try {
-      // TODO: Implement actual rating submission logic
-      const response = await fetch(`/api/bookings/${booking?.id}/rate`, {
+      const response = await fetch(`/api/bookings/${booking?.id}/review`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -79,13 +78,13 @@ export default function RatingPopup({ isOpen, onClose, booking }) {
               {/* Form */}
               <form onSubmit={handleSubmit} className="px-6 py-6">
                 <div className="space-y-6">
-                  {/* Companion Info */}
+                  {/* Companion/Client Info */}
                   <div className="text-center">
                     <p className="text-gray-600 dark:text-gray-400 mb-2">
                       How was your experience with
                     </p>
                     <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {booking?.companionName || 'Your Companion'}?
+                      {booking?.otherPartyName || booking?.companionName || 'the other party'}?
                     </p>
                   </div>
 
@@ -139,7 +138,7 @@ export default function RatingPopup({ isOpen, onClose, booking }) {
                       value={review}
                       onChange={(e) => setReview(e.target.value)}
                       rows="4"
-                      placeholder="Share your experience to help other clients..."
+                      placeholder="Share your experience to help others make informed decisions..."
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

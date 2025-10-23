@@ -1,6 +1,40 @@
 # Database Schema
 
-This document describes the database schema required for the fliQ application, particularly for the chat feature.
+This document describes the database schema required for the fliQ application, including chat, bookings, and review features.
+
+## Reviews Table
+
+Stores reviews and ratings between clients and companions after completed bookings.
+
+```sql
+CREATE TABLE reviews (
+  id SERIAL PRIMARY KEY,
+  booking_id INTEGER NOT NULL UNIQUE,
+  reviewer_id VARCHAR(255) NOT NULL,
+  reviewer_role VARCHAR(50) NOT NULL CHECK (reviewer_role IN ('client', 'companion')),
+  reviewee_id VARCHAR(255) NOT NULL,
+  reviewee_role VARCHAR(50) NOT NULL CHECK (reviewee_role IN ('client', 'companion')),
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review_text TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  -- Foreign key to bookings table
+  FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+  
+  -- Indexes for faster queries
+  INDEX idx_booking_id (booking_id),
+  INDEX idx_reviewee_id (reviewee_id),
+  INDEX idx_reviewer_id (reviewer_id),
+  INDEX idx_created_at (created_at)
+);
+```
+
+**Review Rules:**
+- Each booking can have up to 2 reviews (one from client, one from companion)
+- Reviews can only be submitted after booking status is `'completed'`
+- Reviewers can only review the other party in the booking
+- Ratings are on a scale of 1-5 stars
+- Review text is optional but recommended
 
 ## Messages Table
 
@@ -112,6 +146,65 @@ WHERE booking_id = ?
   AND read_at IS NULL;
 ```
 
+### Submit a review
+
+```sql
+INSERT INTO reviews (booking_id, reviewer_id, reviewer_role, reviewee_id, reviewee_role, rating, review_text, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+RETURNING *;
+```
+
+### Get reviews for a user (companion or client)
+
+```sql
+SELECT 
+  r.*,
+  u.name as reviewer_name,
+  b.date as booking_date
+FROM reviews r
+LEFT JOIN users u ON r.reviewer_id = u.id
+LEFT JOIN bookings b ON r.booking_id = b.id
+WHERE r.reviewee_id = ?
+ORDER BY r.created_at DESC
+LIMIT 50 OFFSET ?;
+```
+
+### Get average rating for a user
+
+```sql
+SELECT 
+  AVG(rating) as average_rating,
+  COUNT(*) as total_reviews
+FROM reviews
+WHERE reviewee_id = ?;
+```
+
+### Check if user has already reviewed a booking
+
+```sql
+SELECT id FROM reviews
+WHERE booking_id = ? AND reviewer_id = ?
+LIMIT 1;
+```
+
+### Get completed bookings that haven't been reviewed by user
+
+```sql
+SELECT b.*, 
+  CASE 
+    WHEN b.user_id = ? THEN c.name
+    ELSE u.name
+  END as other_party_name
+FROM bookings b
+LEFT JOIN users u ON b.user_id = u.id
+LEFT JOIN companions c ON b.companion_id = c.id
+LEFT JOIN reviews r ON r.booking_id = b.id AND r.reviewer_id = ?
+WHERE (b.user_id = ? OR b.companion_id = ?)
+  AND b.status = 'completed'
+  AND r.id IS NULL
+ORDER BY b.date DESC;
+```
+
 ## Supabase Implementation
 
 If using Supabase, you can create these tables using the Supabase dashboard SQL editor or via migrations:
@@ -145,16 +238,43 @@ CREATE POLICY "Users can send messages" ON messages
         AND status IN ('accepted', 'confirmed')
     )
   );
+
+-- Enable RLS on reviews table
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Anyone can view reviews (public)
+CREATE POLICY "Reviews are publicly viewable" ON reviews
+  FOR SELECT
+  USING (true);
+
+-- Policy: Users can submit reviews for their own completed bookings
+CREATE POLICY "Users can submit reviews" ON reviews
+  FOR INSERT
+  WITH CHECK (
+    reviewer_id = auth.uid() AND
+    booking_id IN (
+      SELECT id FROM bookings 
+      WHERE (user_id = auth.uid() OR companion_id = auth.uid())
+        AND status = 'completed'
+    ) AND
+    -- Ensure user hasn't already reviewed this booking
+    NOT EXISTS (
+      SELECT 1 FROM reviews 
+      WHERE booking_id = NEW.booking_id AND reviewer_id = auth.uid()
+    )
+  );
 ```
 
 ## Migration Guide
 
 To implement the database changes:
 
-1. **Create messages table**: Run the CREATE TABLE statement for messages
-2. **Update bookings table**: Ensure status column exists with proper constraints
-3. **Add indexes**: Create indexes for performance optimization
-4. **Set up RLS policies**: If using Supabase, enable and configure RLS
+1. **Create reviews table**: Run the CREATE TABLE statement for reviews
+2. **Create messages table**: Run the CREATE TABLE statement for messages
+3. **Update bookings table**: Ensure status column exists with proper constraints
+4. **Add indexes**: Create indexes for performance optimization
+5. **Set up RLS policies**: If using Supabase, enable and configure RLS
+6. **Test queries**: Verify all queries work with your data
 5. **Test queries**: Verify all queries work with your data
 
 ## Notes

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { User, Mail, Phone, MapPin, Calendar, Camera, Save, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import ReviewsList from '../../components/booking/ReviewsList'
 
 export default function ClientProfile() {
   const [isEditing, setIsEditing] = useState(false)
@@ -416,6 +417,19 @@ export default function ClientProfile() {
             </div>
           </form>
         </div>
+
+        {/* Reviews Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+        >
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+            Reviews from Companions
+          </h3>
+          <ReviewsList userId="current-user-id" userRole="client" />
+        </motion.div>
       </div>
     </div>
   )
