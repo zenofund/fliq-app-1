@@ -1,37 +1,112 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Send, Paperclip, Smile, MoreVertical, Phone, Video } from 'lucide-react'
+import { getPusherClient } from '../../lib/pusher'
 
-export default function ChatUI({ conversation }) {
+export default function ChatUI({ bookingId, otherPartyName, currentUserRole }) {
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
   const messagesEndRef = useRef(null)
+  const pusherRef = useRef(null)
+  const channelRef = useRef(null)
 
+  // Fetch messages from API
   useEffect(() => {
-    // TODO: Fetch messages from API and subscribe to real-time updates via Pusher/Supabase
-    // Placeholder messages
-    setMessages([
-      {
-        id: 1,
-        sender: 'other',
-        text: 'Hi! Thanks for booking. Looking forward to meeting you!',
-        timestamp: '10:30 AM'
-      },
-      {
-        id: 2,
-        sender: 'me',
-        text: 'Hello! Me too. See you at 7 PM?',
-        timestamp: '10:32 AM'
-      },
-      {
-        id: 3,
-        sender: 'other',
-        text: 'Perfect! I\'ll be there.',
-        timestamp: '10:33 AM'
+    if (!bookingId) return
+
+    const fetchMessages = async () => {
+      setIsLoading(true)
+      setError(null)
+      
+      try {
+        const response = await fetch(`/api/chat/messages?bookingId=${bookingId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.message || 'Failed to fetch messages')
+        }
+
+        const data = await response.json()
+        setMessages(data.messages.map(msg => ({
+          id: msg.id,
+          sender: msg.senderRole === currentUserRole ? 'me' : 'other',
+          text: msg.text,
+          timestamp: new Date(msg.createdAt).toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit' 
+          })
+        })))
+      } catch (error) {
+        console.error('Error fetching messages:', error)
+        setError(error.message)
+      } finally {
+        setIsLoading(false)
       }
-    ])
-  }, [conversation])
+    }
+
+    fetchMessages()
+  }, [bookingId, currentUserRole])
+
+  // Subscribe to real-time updates via Pusher
+  useEffect(() => {
+    if (!bookingId) return
+
+    const setupPusher = async () => {
+      try {
+        const pusher = getPusherClient()
+        if (!pusher) return
+
+        pusherRef.current = pusher
+
+        // Set up auth endpoint
+        pusher.config.auth = {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+
+        // Subscribe to private conversation channel
+        const channel = pusher.subscribe(`private-conversation-${bookingId}`)
+        channelRef.current = channel
+
+        // Listen for new messages
+        channel.bind('new-message', (data) => {
+          // Only add message if it's from the other party
+          if (data.sender !== currentUserRole) {
+            const newMsg = {
+              id: data.id,
+              sender: 'other',
+              text: data.text,
+              timestamp: new Date(data.createdAt).toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit' 
+              })
+            }
+            setMessages(prev => [...prev, newMsg])
+          }
+        })
+      } catch (error) {
+        console.error('Error setting up Pusher:', error)
+      }
+    }
+
+    setupPusher()
+
+    // Cleanup on unmount
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.unbind_all()
+        channelRef.current.unsubscribe()
+      }
+    }
+  }, [bookingId, currentUserRole])
 
   useEffect(() => {
     scrollToBottom()
@@ -43,7 +118,7 @@ export default function ChatUI({ conversation }) {
 
   const handleSendMessage = async (e) => {
     e.preventDefault()
-    if (!newMessage.trim()) return
+    if (!newMessage.trim() || !bookingId) return
 
     const message = {
       id: Date.now(),
@@ -60,39 +135,58 @@ export default function ChatUI({ conversation }) {
     setNewMessage('')
 
     try {
-      // TODO: Send message via API and real-time service (Pusher/Supabase)
-      const response = await fetch('/api/messages', {
+      const response = await fetch('/api/chat/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
-          conversationId: conversation?.id,
+          bookingId,
           text: message.text
         })
       })
 
       if (!response.ok) {
-        throw new Error('Failed to send message')
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to send message')
       }
     } catch (error) {
       console.error('Error sending message:', error)
-      // TODO: Handle error - show notification, retry, etc.
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== message.id))
+      setError(error.message)
+      // Re-add the text so user can try again
+      setNewMessage(message.text)
     }
+  }
+
+  if (!bookingId) {
+    return (
+      <div className="flex items-center justify-center h-full bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+        <p className="text-gray-500 dark:text-gray-400">Select a conversation to start chatting</p>
+      </div>
+    )
   }
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+      {/* Error Banner */}
+      {error && (
+        <div className="px-6 py-3 bg-red-100 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800">
+          <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+        </div>
+      )}
+      
       {/* Chat Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-            {conversation?.name?.charAt(0) || 'U'}
+            {otherPartyName?.charAt(0) || 'U'}
           </div>
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white">
-              {conversation?.name || 'User'}
+              {otherPartyName || 'User'}
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {isTyping ? 'Typing...' : 'Online'}
@@ -114,7 +208,16 @@ export default function ChatUI({ conversation }) {
 
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-        {messages.map((message, index) => (
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500 dark:text-gray-400">No messages yet. Start the conversation!</p>
+          </div>
+        ) : (
+          messages.map((message, index) => (
           <motion.div
             key={message.id}
             initial={{ opacity: 0, y: 10 }}
@@ -139,7 +242,8 @@ export default function ChatUI({ conversation }) {
               </p>
             </div>
           </motion.div>
-        ))}
+          ))
+        )}
         <div ref={messagesEndRef} />
       </div>
 
