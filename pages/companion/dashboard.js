@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Calendar, DollarSign, Star, TrendingUp, CheckCircle, Circle, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
+import RatingPopup from '../../components/booking/RatingPopup'
 
 export default function CompanionDashboard() {
   const [onboardingProgress, setOnboardingProgress] = useState(60)
   const [bookingRequests, setBookingRequests] = useState([])
   const [acceptedBookings, setAcceptedBookings] = useState([])
+  const [completedBookings, setCompletedBookings] = useState([])
   const [stats, setStats] = useState({
     totalEarnings: 0,
     upcomingBookings: 0,
@@ -14,6 +16,8 @@ export default function CompanionDashboard() {
     completedBookings: 0
   })
   const [isUpdating, setIsUpdating] = useState(null)
+  const [selectedBookingForReview, setSelectedBookingForReview] = useState(null)
+  const [isRatingPopupOpen, setIsRatingPopupOpen] = useState(false)
 
   useEffect(() => {
     // TODO: Fetch user data, booking requests, and stats
@@ -41,6 +45,22 @@ export default function CompanionDashboard() {
         location: 'Downtown Restaurant',
         price: '$150',
         status: 'accepted'
+      }
+    ])
+
+    setCompletedBookings([
+      {
+        id: 3,
+        client: 'Alice Johnson',
+        clientName: 'Alice Johnson',
+        otherPartyName: 'Alice Johnson',
+        date: '2024-01-10',
+        time: '18:00',
+        duration: '2 hours',
+        location: 'Art Gallery',
+        price: '$100',
+        status: 'completed',
+        hasReviewed: false
       }
     ])
 
@@ -89,13 +109,40 @@ export default function CompanionDashboard() {
         alert('Booking rejected.')
       } else if (action === 'complete') {
         setAcceptedBookings(prev => prev.filter(b => b.id !== bookingId))
-        alert('Booking completed! Chat is now closed.')
+        // Add to completed bookings for review
+        const booking = acceptedBookings.find(b => b.id === bookingId)
+        if (booking) {
+          setCompletedBookings(prev => [...prev, { 
+            ...booking, 
+            status: 'completed',
+            hasReviewed: false,
+            clientName: booking.client,
+            otherPartyName: booking.client
+          }])
+        }
+        alert('Booking completed! Please leave a review for your client.')
       }
     } catch (error) {
       console.error('Error updating booking:', error)
       alert(`Failed to ${action} booking: ${error.message}`)
     } finally {
       setIsUpdating(null)
+    }
+  }
+
+  const handleOpenReviewPopup = (booking) => {
+    setSelectedBookingForReview(booking)
+    setIsRatingPopupOpen(true)
+  }
+
+  const handleCloseReviewPopup = () => {
+    setIsRatingPopupOpen(false)
+    setSelectedBookingForReview(null)
+    // Mark booking as reviewed
+    if (selectedBookingForReview) {
+      setCompletedBookings(prev => 
+        prev.map(b => b.id === selectedBookingForReview.id ? { ...b, hasReviewed: true } : b)
+      )
     }
   }
 
@@ -341,6 +388,49 @@ export default function CompanionDashboard() {
               )}
             </motion.div>
 
+            {/* Completed Bookings - Pending Reviews */}
+            {completedBookings.filter(b => !b.hasReviewed).length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="mb-8"
+              >
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Leave a Review
+                </h2>
+                <div className="space-y-4">
+                  {completedBookings.filter(b => !b.hasReviewed).map((booking) => (
+                    <div key={booking.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                              {booking.client || booking.clientName}
+                            </h3>
+                            <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 text-xs rounded-full">
+                              Completed
+                            </span>
+                          </div>
+                          <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                            <div>📅 {booking.date} at {booking.time}</div>
+                            <div>📍 {booking.location}</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleOpenReviewPopup(booking)}
+                          className="px-6 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:shadow-lg transition-shadow flex items-center"
+                        >
+                          <Star className="w-4 h-4 mr-2" />
+                          Leave Review
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
             {/* Accepted Bookings - Chat Available */}
             {acceptedBookings.length > 0 && (
               <motion.div
@@ -439,6 +529,13 @@ export default function CompanionDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Rating Popup */}
+      <RatingPopup 
+        isOpen={isRatingPopupOpen}
+        onClose={handleCloseReviewPopup}
+        booking={selectedBookingForReview}
+      />
     </div>
   )
 }

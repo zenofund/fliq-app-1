@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { User, Mail, Phone, MapPin, Calendar, Camera, Save, ArrowLeft, DollarSign, Globe, Award, Clock, CheckCircle, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
+import ReviewsList from '../../components/booking/ReviewsList'
 
 export default function CompanionProfile() {
   const [isEditing, setIsEditing] = useState(false)
@@ -574,6 +575,19 @@ export default function CompanionProfile() {
             </div>
           </form>
         </div>
+
+        {/* Reviews Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+        >
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+            Client Reviews
+          </h3>
+          <ReviewsList userId="current-user-id" userRole="companion" />
+        </motion.div>
 
         {/* Profile Tips */}
         <motion.div
