@@ -30,6 +30,7 @@
 
 import { verifyToken } from '../../../lib/auth'
 import { sendMessageToConversation } from '../../../lib/pusher'
+import { sendNotification, NOTIFICATION_TYPES } from '../../../lib/notifications'
 
 export default async function handler(req, res) {
   // Set CORS headers to prevent hanging requests
@@ -230,13 +231,37 @@ async function handleSendMessage(req, res, user) {
       console.error('Failed to send real-time notification:', pusherError)
     }
 
-    // TODO: Send push notification to the other party
-    // const recipientId = user.role === 'client' ? booking.companionId : booking.userId
-    // await sendUserNotification(recipientId, {
-    //   type: 'new_message',
-    //   bookingId,
-    //   message: text.substring(0, 50) + (text.length > 50 ? '...' : '')
-    // })
+    // Send notification to the other party
+    try {
+      // TODO: Fetch booking to get recipient ID
+      // const booking = await db.query('SELECT * FROM bookings WHERE id = ?', [bookingId])
+      // const recipientId = user.role === 'client' ? booking.companionId : booking.userId
+      
+      // Placeholder - determine recipient
+      const recipientId = user.role === 'client' ? 'comp123' : 'user123'
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const messagePreview = text.length > 50 ? text.substring(0, 50) + '...' : text
+
+      await sendNotification(
+        recipientId,
+        NOTIFICATION_TYPES.NEW_MESSAGE,
+        {
+          senderName: user.name || (user.role === 'client' ? 'A client' : 'A companion'),
+          messagePreview,
+          chatUrl: `${appUrl}/${user.role === 'client' ? 'companion' : 'client'}/dashboard?booking=${bookingId}&chat=true`
+        },
+        {
+          inApp: true,
+          email: false, // Don't send email for every message
+          push: true,
+          userEmail: null,
+          pushToken: null // TODO: Fetch from user preferences
+        }
+      )
+    } catch (notificationError) {
+      // Log but don't fail the request if notification fails
+      console.error('Failed to send message notification:', notificationError)
+    }
 
     return res.status(201).json({
       message: 'Message sent successfully',
