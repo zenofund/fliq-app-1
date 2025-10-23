@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { MapPin, Search, Star, Calendar, Clock, MessageCircle, Loader } from 'lucide-react'
+import { MapPin, Search, Star, Calendar, Clock, MessageCircle, Loader, Heart } from 'lucide-react'
 import Link from 'next/link'
 import BookingModal from '../../components/booking/BookingModal'
 import CompanionFilters from '../../components/ui/CompanionFilters'
@@ -18,6 +18,7 @@ export default function ClientDashboard() {
   const [pagination, setPagination] = useState({})
   const [selectedBookingForReview, setSelectedBookingForReview] = useState(null)
   const [isRatingPopupOpen, setIsRatingPopupOpen] = useState(false)
+  const [favoriteCompanions, setFavoriteCompanions] = useState(new Set())
 
   useEffect(() => {
     // TODO: Fetch user data and active bookings
@@ -68,6 +69,11 @@ export default function ClientDashboard() {
       if (response.ok) {
         setNearbyCompanions(data.companions || [])
         setPagination(data.pagination || {})
+        
+        // Fetch favorite status for the companions
+        if (data.companions && data.companions.length > 0) {
+          fetchFavoriteStatus(data.companions.map(c => c.id))
+        }
       } else {
         console.error('Failed to fetch companions:', data.message)
       }
@@ -75,6 +81,76 @@ export default function ClientDashboard() {
       console.error('Error fetching companions:', error)
     } finally {
       setIsSearching(false)
+    }
+  }
+
+  const fetchFavoriteStatus = async (companionIds) => {
+    try {
+      // TODO: Add actual authentication token
+      const token = 'mock-token'
+      const response = await fetch(`/api/favorites/check?companionIds=${companionIds.join(',')}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      const data = await response.json()
+
+      if (response.ok && data.favoriteStatus) {
+        const favorited = new Set()
+        Object.keys(data.favoriteStatus).forEach(id => {
+          if (data.favoriteStatus[id]) {
+            favorited.add(parseInt(id))
+          }
+        })
+        setFavoriteCompanions(favorited)
+      }
+    } catch (error) {
+      console.error('Error fetching favorite status:', error)
+    }
+  }
+
+  const handleToggleFavorite = async (companionId, e) => {
+    e.stopPropagation() // Prevent triggering parent click events
+    
+    const isFavorited = favoriteCompanions.has(companionId)
+    
+    try {
+      // TODO: Add actual authentication token
+      const token = 'mock-token'
+      
+      if (isFavorited) {
+        // Remove from favorites
+        const response = await fetch(`/api/favorites?companionId=${companionId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        
+        if (response.ok) {
+          setFavoriteCompanions(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(companionId)
+            return newSet
+          })
+        }
+      } else {
+        // Add to favorites
+        const response = await fetch('/api/favorites', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ companionId })
+        })
+        
+        if (response.ok) {
+          setFavoriteCompanions(prev => new Set(prev).add(companionId))
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
     }
   }
 
@@ -129,6 +205,9 @@ export default function ClientDashboard() {
               </Link>
               <Link href="/client/messages" className="text-gray-700 dark:text-gray-300 hover:text-pink-600">
                 Messages
+              </Link>
+              <Link href="/client/favorites" className="text-gray-700 dark:text-gray-300 hover:text-pink-600">
+                Favorites
               </Link>
               <Link href="/client/profile" className="text-gray-700 dark:text-gray-300 hover:text-pink-600">
                 Profile
@@ -339,7 +418,18 @@ export default function ClientDashboard() {
               ) : nearbyCompanions.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {nearbyCompanions.map((companion) => (
-                    <div key={companion.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
+                    <div key={companion.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow relative">
+                      {/* Favorite button */}
+                      <button
+                        onClick={(e) => handleToggleFavorite(companion.id, e)}
+                        className="absolute top-3 right-3 z-10 p-2 bg-white dark:bg-gray-700 rounded-full shadow-lg hover:scale-110 transition-transform"
+                        title={favoriteCompanions.has(companion.id) ? 'Remove from favorites' : 'Add to favorites'}
+                      >
+                        <Heart 
+                          className={`w-5 h-5 ${favoriteCompanions.has(companion.id) ? 'text-pink-500 fill-pink-500' : 'text-gray-400'}`}
+                        />
+                      </button>
+                      
                       <div className="h-48 bg-gradient-to-br from-pink-200 to-purple-200 dark:from-pink-900 dark:to-purple-900"></div>
                       <div className="p-4">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -424,7 +514,7 @@ export default function ClientDashboard() {
                 </div>
                 <div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">Favorite Companions</div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">5</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{favoriteCompanions.size}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">Total Spent</div>
