@@ -1,6 +1,37 @@
 # Database Schema
 
-This document describes the database schema required for the fliQ application, including chat, bookings, and review features.
+This document describes the database schema required for the fliQ application, including chat, bookings, reviews, and favorites features.
+
+## Favorites Table
+
+Stores user's favorite companions for quick access and easy booking.
+
+```sql
+CREATE TABLE favorites (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(255) NOT NULL,
+  companion_id VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  -- Foreign keys (assuming users table exists)
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (companion_id) REFERENCES users(id) ON DELETE CASCADE,
+  
+  -- Unique constraint to prevent duplicate favorites
+  UNIQUE KEY unique_favorite (user_id, companion_id),
+  
+  -- Indexes for faster queries
+  INDEX idx_user_id (user_id),
+  INDEX idx_companion_id (companion_id),
+  INDEX idx_created_at (created_at)
+);
+```
+
+**Favorites Rules:**
+- Only clients can have favorites (enforced at application level)
+- Each user-companion pair can only be favorited once (enforced by UNIQUE constraint)
+- Favorites are automatically deleted if either user or companion is deleted (CASCADE)
+- Companions must have role='companion' and verificationStatus='verified' (enforced at application level)
 
 ## Reviews Table
 
@@ -94,6 +125,64 @@ For the chat feature to work properly, the bookings table needs:
 - `created_at` - When booking was created
 
 ## Example Queries
+
+### Favorites Queries
+
+#### Get all favorites for a user with full companion details
+
+```sql
+SELECT 
+  f.id as favorite_id,
+  f.created_at as favorited_at,
+  c.*
+FROM favorites f
+JOIN users c ON f.companion_id = c.id
+WHERE f.user_id = ?
+  AND c.role = 'companion'
+  AND c.verificationStatus = 'verified'
+ORDER BY f.created_at DESC
+LIMIT ? OFFSET ?;
+```
+
+#### Add a companion to favorites
+
+```sql
+INSERT INTO favorites (user_id, companion_id, created_at)
+VALUES (?, ?, CURRENT_TIMESTAMP)
+ON DUPLICATE KEY UPDATE created_at = created_at;
+```
+
+#### Remove a companion from favorites
+
+```sql
+DELETE FROM favorites
+WHERE user_id = ? AND companion_id = ?;
+```
+
+#### Check if a companion is favorited
+
+```sql
+SELECT id FROM favorites
+WHERE user_id = ? AND companion_id = ?
+LIMIT 1;
+```
+
+#### Check favorite status for multiple companions
+
+```sql
+SELECT companion_id FROM favorites
+WHERE user_id = ? AND companion_id IN (?, ?, ?);
+```
+
+#### Get favorite count for a user
+
+```sql
+SELECT COUNT(*) as favorite_count
+FROM favorites
+WHERE user_id = ?;
+```
+
+### Conversation Queries
 
 ### Get all conversations for a user
 
@@ -214,6 +303,30 @@ If using Supabase, you can create these tables using the Supabase dashboard SQL 
 3. Enable Row Level Security (RLS) policies:
 
 ```sql
+-- Enable RLS on favorites table
+ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can view their own favorites
+CREATE POLICY "Users can view their own favorites" ON favorites
+  FOR SELECT
+  USING (user_id = auth.uid());
+
+-- Policy: Users can add to their own favorites
+CREATE POLICY "Users can add favorites" ON favorites
+  FOR INSERT
+  WITH CHECK (
+    user_id = auth.uid() AND
+    companion_id IN (
+      SELECT id FROM users 
+      WHERE role = 'companion' AND verificationStatus = 'verified'
+    )
+  );
+
+-- Policy: Users can delete their own favorites
+CREATE POLICY "Users can delete favorites" ON favorites
+  FOR DELETE
+  USING (user_id = auth.uid());
+
 -- Enable RLS on messages table
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
@@ -269,17 +382,19 @@ CREATE POLICY "Users can submit reviews" ON reviews
 
 To implement the database changes:
 
-1. **Create reviews table**: Run the CREATE TABLE statement for reviews
-2. **Create messages table**: Run the CREATE TABLE statement for messages
-3. **Update bookings table**: Ensure status column exists with proper constraints
-4. **Add indexes**: Create indexes for performance optimization
-5. **Set up RLS policies**: If using Supabase, enable and configure RLS
-6. **Test queries**: Verify all queries work with your data
-5. **Test queries**: Verify all queries work with your data
+1. **Create favorites table**: Run the CREATE TABLE statement for favorites
+2. **Create reviews table**: Run the CREATE TABLE statement for reviews
+3. **Create messages table**: Run the CREATE TABLE statement for messages
+4. **Update bookings table**: Ensure status column exists with proper constraints
+5. **Add indexes**: Create indexes for performance optimization
+6. **Set up RLS policies**: If using Supabase, enable and configure RLS
+7. **Test queries**: Verify all queries work with your data
 
 ## Notes
 
-- Messages are automatically deleted when a booking is deleted (CASCADE)
-- The `read_at` column tracks when messages are read for notification purposes
-- Indexes are crucial for performance as the messages table will grow large
-- Always verify user access to bookings before allowing message operations
+- **Favorites**: Automatically deleted when user or companion is deleted (CASCADE)
+- **Favorites**: Unique constraint prevents duplicate favorites for the same user-companion pair
+- **Messages**: Automatically deleted when a booking is deleted (CASCADE)
+- **Messages**: The `read_at` column tracks when messages are read for notification purposes
+- **Indexes**: Crucial for performance as the messages and favorites tables will grow large
+- **Security**: Always verify user access to bookings/favorites before allowing operations
