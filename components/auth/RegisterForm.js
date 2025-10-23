@@ -186,6 +186,9 @@ export default function RegisterForm() {
               )}
             </button>
           </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Must be at least 8 characters with uppercase, lowercase, and number
+          </p>
         </div>
 
         <div>

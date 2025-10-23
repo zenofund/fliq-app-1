@@ -72,6 +72,25 @@ export default async function handler(req, res) {
       });
     }
 
+    // Additional password strength validation
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      return res.status(400).json({ 
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+        requirements: {
+          minLength: password.length >= 8,
+          hasUpperCase,
+          hasLowerCase,
+          hasNumber,
+          hasSpecialChar
+        }
+      });
+    }
+
     // Validate role
     const validRoles = ['client', 'companion'];
     if (!validRoles.includes(role)) {

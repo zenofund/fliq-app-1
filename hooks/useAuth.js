@@ -31,27 +31,19 @@ export function useAuth() {
         return
       }
 
-      // TODO: Verify token with backend
-      // const response = await fetch('/api/auth/me', {
-      //   headers: {
-      //     'Authorization': `Bearer ${token}`
-      //   }
-      // })
-      
-      // if (!response.ok) {
-      //   throw new Error('Invalid token')
-      // }
-      
-      // const userData = await response.json()
-      // setUser(userData)
-
-      // Placeholder: Decode token to get user info
-      // In production, verify with backend
-      setUser({
-        id: 'user123',
-        email: 'user@example.com',
-        role: 'client'
+      // Verify token with backend
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       })
+      
+      if (!response.ok) {
+        throw new Error('Invalid token')
+      }
+      
+      const data = await response.json()
+      setUser(data.user)
       
     } catch (err) {
       console.error('Auth check error:', err)
@@ -150,10 +142,27 @@ export function useAuth() {
   /**
    * Logout user
    */
-  const logout = useCallback(() => {
-    localStorage.removeItem('token')
-    setUser(null)
-    router.push('/')
+  const logout = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token')
+      
+      // Call logout endpoint
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+      }
+    } catch (err) {
+      console.error('Logout error:', err)
+    } finally {
+      // Always clear local state and redirect, even if API call fails
+      localStorage.removeItem('token')
+      setUser(null)
+      router.push('/')
+    }
   }, [router])
 
   /**
