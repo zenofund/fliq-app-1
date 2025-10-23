@@ -129,6 +129,14 @@ async function processWebhookEvent(event) {
         await handleTransferFailed(event.data)
         break
 
+      case 'refund.processed':
+        await handleRefundProcessed(event.data)
+        break
+
+      case 'refund.failed':
+        await handleRefundFailed(event.data)
+        break
+
       default:
         console.log('Unhandled event type:', event.event)
     }
@@ -210,6 +218,67 @@ async function handleTransferSuccess(data) {
 async function handleTransferFailed(data) {
   // TODO: Update transfer status and alert admin
   console.log('Transfer failed:', data.reference)
+}
+
+/**
+ * Handle successful refund processing
+ */
+async function handleRefundProcessed(data) {
+  try {
+    const transaction = data.transaction
+    const bookingId = data.transaction_reference?.split('_')[1] // Extract from reference like "booking_123_timestamp"
+    
+    if (!bookingId) {
+      console.error('No booking ID found in refund transaction')
+      return
+    }
+
+    // TODO: Update payment and booking status in database
+    // await db.transaction(async (trx) => {
+    //   await trx.query('UPDATE payments SET status = ?, refunded_at = NOW() WHERE reference = ?',
+    //     ['refunded', transaction])
+    //   await trx.query('UPDATE bookings SET payment_status = ? WHERE id = ?',
+    //     ['refunded', bookingId])
+    // })
+
+    // TODO: Send refund confirmation notification to client
+    // await sendNotification(userId, {
+    //   type: 'refund_processed',
+    //   bookingId,
+    //   message: 'Your refund has been processed successfully'
+    // })
+
+    console.log('Refund processed successfully:', transaction)
+  } catch (error) {
+    console.error('Error handling refund processed:', error)
+    throw error
+  }
+}
+
+/**
+ * Handle failed refund
+ */
+async function handleRefundFailed(data) {
+  try {
+    const transaction = data.transaction
+    const bookingId = data.transaction_reference?.split('_')[1]
+
+    // TODO: Update refund status and alert admin
+    // await db.query('UPDATE payments SET refund_status = ? WHERE reference = ?', ['failed', transaction])
+
+    // TODO: Alert admin about failed refund for manual processing
+    // await sendAdminAlert({
+    //   type: 'refund_failed',
+    //   bookingId,
+    //   transaction,
+    //   reason: data.message
+    // })
+
+    console.log('Refund failed:', transaction)
+  } catch (error) {
+    console.error('Error handling refund failure:', error)
+    throw error
+  }
 }
 
 /**

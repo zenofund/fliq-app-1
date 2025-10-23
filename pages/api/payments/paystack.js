@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     const user = { id: 'user123', email: 'user@example.com' } // Placeholder
 
     // Validate request body
-    const { bookingId, amount, currency = 'NGN' } = req.body
+    const { bookingId, amount, currency = 'NGN', companionSubaccount } = req.body
 
     if (!bookingId) {
       return res.status(400).json({ message: 'Booking ID is required' })
@@ -80,36 +80,62 @@ export default async function handler(req, res) {
       return res.status(500).json({ message: 'Payment configuration error' })
     }
 
-    // Initialize payment with Paystack
-    // IMPORTANT: Set timeout to prevent hanging requests
-    const paystackResponse = await axios.post(
-      'https://api.paystack.co/transaction/initialize',
-      {
+    const reference = `booking_${bookingId}_${Date.now()}`
+    const metadata = {
+      bookingId,
+      userId: user.id,
+      custom_fields: [
+        {
+          display_name: 'Booking ID',
+          variable_name: 'booking_id',
+          value: bookingId
+        }
+      ]
+    }
+
+    let paystackResponse
+
+    // Initialize payment with or without split
+    if (companionSubaccount) {
+      // Initialize payment with split to companion subaccount
+      // Platform gets service fee automatically
+      const { initializePaymentWithSplit } = require('../../../lib/paystack')
+      
+      const splitResult = await initializePaymentWithSplit({
         email: user.email,
-        amount: amount, // Amount in smallest currency unit (kobo for NGN)
+        amount: amount,
         currency: currency,
-        reference: `booking_${bookingId}_${Date.now()}`, // Unique reference
-        metadata: {
-          bookingId,
-          userId: user.id,
-          custom_fields: [
-            {
-              display_name: 'Booking ID',
-              variable_name: 'booking_id',
-              value: bookingId
-            }
-          ]
+        reference: reference,
+        metadata: metadata,
+        subaccount: companionSubaccount,
+        transactionCharge: 0, // Platform keeps transaction charge as service fee
+        bearer: 'account' // Subaccount (companion) bears transaction fee
+      })
+
+      paystackResponse = { data: splitResult }
+    } else {
+      // Standard payment initialization without split (for backward compatibility)
+      const response = await axios.post(
+        'https://api.paystack.co/transaction/initialize',
+        {
+          email: user.email,
+          amount: amount,
+          currency: currency,
+          reference: reference,
+          metadata: metadata,
+          callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/payments/callback`
         },
-        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/payments/callback`
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${paystackSecret}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 10000 // 10 second timeout to prevent hanging
-      }
-    )
+        {
+          headers: {
+            Authorization: `Bearer ${paystackSecret}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
+      )
+      
+      paystackResponse = response
+    }
 
     // Check if initialization was successful
     if (!paystackResponse.data.status) {
