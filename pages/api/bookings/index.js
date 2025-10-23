@@ -213,6 +213,11 @@ async function handleCreateBooking(req, res, user) {
 /**
  * PUT /api/bookings - Update booking (accept/complete/cancel)
  * SAFETY: Single update operation, validates state transitions
+ * 
+ * CHAT AVAILABILITY LOGIC:
+ * - Chat becomes available when companion accepts booking (status: 'accepted' or 'confirmed')
+ * - Chat becomes unavailable when companion marks as 'completed'
+ * - Chat also unavailable for 'pending', 'rejected', 'cancelled' statuses
  */
 async function handleUpdateBooking(req, res, user) {
   try {
@@ -241,21 +246,55 @@ async function handleUpdateBooking(req, res, user) {
     // }
 
     // TODO: Validate state transitions
-    // e.g., can't complete a booking that's not accepted
+    // Only companions can accept/reject/complete
+    // if (['accept', 'reject', 'complete'].includes(action) && user.role !== 'companion') {
+    //   return res.status(403).json({ message: 'Only companions can perform this action' })
+    // }
+    
+    // TODO: Validate booking can be completed only if accepted first
+    // if (action === 'complete' && !['accepted', 'confirmed'].includes(booking.status)) {
+    //   return res.status(400).json({ message: 'Booking must be accepted before completing' })
+    // }
+
+    // Map action to status
+    const statusMap = {
+      'accept': 'accepted',
+      'reject': 'rejected',
+      'complete': 'completed',
+      'cancel': 'cancelled'
+    }
+    const newStatus = statusMap[action]
 
     // TODO: Update booking status
-    // await db.query('UPDATE bookings SET status = ? WHERE id = ?', [action, bookingId])
+    // await db.query('UPDATE bookings SET status = ? WHERE id = ?', [newStatus, bookingId])
 
     // TODO: Handle payment based on action
-    // - accept: Charge client, hold funds
-    // - complete: Release funds to companion
-    // - cancel: Refund client
+    // - accept: Charge client, hold funds, ENABLE CHAT
+    // - complete: Release funds to companion, DISABLE CHAT
+    // - cancel: Refund client, DISABLE CHAT
+    // - reject: CHAT NEVER ENABLED
 
     // TODO: Send notifications to both parties
+    // Include chat availability status in notification
+    // const chatAvailable = ['accepted'].includes(newStatus)
+    // await sendUserNotification(booking.userId, {
+    //   type: 'booking_update',
+    //   bookingId,
+    //   status: newStatus,
+    //   chatAvailable,
+    //   message: action === 'accept' 
+    //     ? 'Booking accepted! You can now chat with your companion.'
+    //     : action === 'complete'
+    //     ? 'Booking completed! Chat is now closed.'
+    //     : `Booking ${action}ed`
+    // })
 
     return res.status(200).json({
       message: `Booking ${action}ed successfully`,
-      bookingId
+      bookingId,
+      status: newStatus,
+      // Chat is available for accepted/confirmed bookings only
+      chatAvailable: ['accepted', 'confirmed'].includes(newStatus)
     })
   } catch (error) {
     console.error('Error updating booking:', error)

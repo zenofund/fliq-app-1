@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Calendar, DollarSign, Star, TrendingUp, CheckCircle, Circle } from 'lucide-react'
+import { Calendar, DollarSign, Star, TrendingUp, CheckCircle, Circle, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 
 export default function CompanionDashboard() {
   const [onboardingProgress, setOnboardingProgress] = useState(60)
   const [bookingRequests, setBookingRequests] = useState([])
+  const [acceptedBookings, setAcceptedBookings] = useState([])
   const [stats, setStats] = useState({
     totalEarnings: 0,
     upcomingBookings: 0,
     rating: 0,
     completedBookings: 0
   })
+  const [isUpdating, setIsUpdating] = useState(null)
 
   useEffect(() => {
     // TODO: Fetch user data, booking requests, and stats
@@ -24,7 +26,21 @@ export default function CompanionDashboard() {
         time: '18:00',
         duration: '2 hours',
         location: 'City Center',
-        price: '$100'
+        price: '$100',
+        status: 'pending'
+      }
+    ])
+
+    setAcceptedBookings([
+      {
+        id: 2,
+        client: 'Jane Doe',
+        date: '2024-01-22',
+        time: '19:00',
+        duration: '3 hours',
+        location: 'Downtown Restaurant',
+        price: '$150',
+        status: 'accepted'
       }
     ])
 
@@ -35,6 +51,53 @@ export default function CompanionDashboard() {
       completedBookings: 42
     })
   }, [])
+
+  const handleBookingAction = async (bookingId, action) => {
+    setIsUpdating(bookingId)
+    
+    try {
+      const response = await fetch('/api/bookings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          bookingId,
+          action
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to update booking')
+      }
+
+      const data = await response.json()
+      
+      // Update UI based on action
+      if (action === 'accept') {
+        // Move from requests to accepted bookings
+        const booking = bookingRequests.find(b => b.id === bookingId)
+        if (booking) {
+          setBookingRequests(prev => prev.filter(b => b.id !== bookingId))
+          setAcceptedBookings(prev => [...prev, { ...booking, status: 'accepted' }])
+        }
+        alert('Booking accepted! You can now chat with the client.')
+      } else if (action === 'reject') {
+        setBookingRequests(prev => prev.filter(b => b.id !== bookingId))
+        alert('Booking rejected.')
+      } else if (action === 'complete') {
+        setAcceptedBookings(prev => prev.filter(b => b.id !== bookingId))
+        alert('Booking completed! Chat is now closed.')
+      }
+    } catch (error) {
+      console.error('Error updating booking:', error)
+      alert(`Failed to ${action} booking: ${error.message}`)
+    } finally {
+      setIsUpdating(null)
+    }
+  }
 
   const onboardingSteps = [
     { id: 1, title: 'Complete Profile', completed: true },
@@ -252,10 +315,18 @@ export default function CompanionDashboard() {
                         </div>
                       </div>
                       <div className="flex space-x-3">
-                        <button className="flex-1 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:shadow-lg transition-shadow">
-                          Accept
+                        <button 
+                          onClick={() => handleBookingAction(request.id, 'accept')}
+                          disabled={isUpdating === request.id}
+                          className="flex-1 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isUpdating === request.id ? 'Accepting...' : 'Accept'}
                         </button>
-                        <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <button 
+                          onClick={() => handleBookingAction(request.id, 'reject')}
+                          disabled={isUpdating === request.id}
+                          className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
                           Decline
                         </button>
                       </div>
@@ -269,6 +340,59 @@ export default function CompanionDashboard() {
                 </div>
               )}
             </motion.div>
+
+            {/* Accepted Bookings - Chat Available */}
+            {acceptedBookings.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Accepted Bookings
+                </h2>
+                <div className="space-y-4">
+                  {acceptedBookings.map((booking) => (
+                    <div key={booking.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {booking.client}
+                          </h3>
+                          <div className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                            <div>📅 {booking.date} at {booking.time}</div>
+                            <div>⏱️ Duration: {booking.duration}</div>
+                            <div>📍 {booking.location}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            {booking.price}
+                          </div>
+                          <span className="inline-block mt-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 text-xs rounded-full">
+                            Accepted
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex space-x-3">
+                        <Link href={`/companion/messages?booking=${booking.id}`} className="flex-1">
+                          <button className="w-full px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors">
+                            💬 Chat with Client
+                          </button>
+                        </Link>
+                        <button 
+                          onClick={() => handleBookingAction(booking.id, 'complete')}
+                          disabled={isUpdating === booking.id}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isUpdating === booking.id ? 'Completing...' : 'Mark Complete'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
           </div>
 
           {/* Sidebar */}

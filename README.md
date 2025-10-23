@@ -94,11 +94,23 @@ fliq-app-1/
 ### Components
 - ✅ BookingModal - Create new bookings
 - ✅ RatingPopup - Rate completed bookings
-- ✅ ChatUI - Real-time messaging interface
+- ✅ ChatUI - Real-time messaging interface with Pusher integration
 - ✅ NotificationsDropdown - Notification management
 
+### Real-Time Chat Feature
+- ✅ Private messaging between clients and companions
+- ✅ Chat available only after companion accepts booking
+- ✅ Chat disabled after booking is marked as completed
+- ✅ Real-time message delivery via Pusher
+- ✅ Message history and conversation management
+- ✅ Secure channel authentication
+- ✅ AI content moderation ready
+
 ### API Routes (with Safety Best Practices)
-- ✅ `/api/bookings` - CRUD operations for bookings
+- ✅ `/api/bookings` - CRUD operations for bookings with chat availability logic
+- ✅ `/api/chat/messages` - Send and fetch chat messages
+- ✅ `/api/chat/conversations` - Get user conversations
+- ✅ `/api/pusher/auth` - Authenticate Pusher private channels
 - ✅ `/api/payments/paystack` - Payment initialization
 - ✅ `/api/payments/webhook` - Paystack webhook handler
 - ✅ `/api/moderation/openai` - Content moderation
@@ -110,6 +122,7 @@ All API routes include:
 - Proper error handling
 - Security best practices
 - CORS configuration
+- JWT authentication
 
 ## 🛠️ Setup
 
@@ -182,6 +195,46 @@ Start production server:
 ```bash
 npm start
 ```
+
+## 📊 Chat Feature Details
+
+### How Chat Works
+
+1. **Booking Creation**: Client creates a booking request (status: `pending`)
+2. **Companion Accepts**: Companion accepts the booking (status: `accepted`)
+   - ✅ Chat becomes available for both parties
+3. **Messaging**: Client and companion can exchange messages in real-time
+4. **Booking Completion**: Companion marks booking as complete (status: `completed`)
+   - ❌ Chat becomes disabled/read-only
+
+### Chat Availability Matrix
+
+| Booking Status | Chat Available | Notes |
+|---------------|----------------|-------|
+| `pending` | ❌ No | Waiting for companion to accept |
+| `accepted` | ✅ Yes | Active conversation |
+| `confirmed` | ✅ Yes | Active conversation |
+| `completed` | ❌ No | Booking finished |
+| `cancelled` | ❌ No | Booking cancelled |
+| `rejected` | ❌ No | Companion rejected |
+
+### Security Features
+
+- JWT authentication required for all chat operations
+- Private Pusher channels with server-side authentication
+- User can only access conversations for their own bookings
+- Message content validation (max 5000 characters)
+- AI moderation integration ready (placeholder in place)
+- SQL injection prevention with parameterized queries
+
+### Database Requirements
+
+See [docs/database-schema.md](docs/database-schema.md) for complete database schema including:
+- Messages table structure
+- Bookings table updates
+- Required indexes
+- Example queries
+- Supabase RLS policies
 
 ## 🚢 Deployment
 

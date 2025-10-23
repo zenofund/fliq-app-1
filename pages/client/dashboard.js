@@ -188,10 +188,33 @@ export default function ClientDashboard() {
                         </span>
                       </div>
                       <div className="mt-4 flex space-x-3">
-                        <button className="flex-1 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors">
-                          <MessageCircle className="w-4 h-4 inline mr-2" />
-                          Chat
-                        </button>
+                        {/* Chat button only available for accepted/confirmed bookings */}
+                        {['accepted', 'confirmed'].includes(booking.status) ? (
+                          <Link href={`/client/messages?booking=${booking.id}`} className="flex-1">
+                            <button className="w-full px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors">
+                              <MessageCircle className="w-4 h-4 inline mr-2" />
+                              Chat
+                            </button>
+                          </Link>
+                        ) : booking.status === 'pending' ? (
+                          <button 
+                            disabled
+                            className="flex-1 px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg cursor-not-allowed"
+                            title="Chat will be available once companion accepts"
+                          >
+                            <MessageCircle className="w-4 h-4 inline mr-2" />
+                            Chat (Pending)
+                          </button>
+                        ) : (
+                          <button 
+                            disabled
+                            className="flex-1 px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg cursor-not-allowed"
+                            title="Chat is not available for this booking"
+                          >
+                            <MessageCircle className="w-4 h-4 inline mr-2" />
+                            Chat (Unavailable)
+                          </button>
+                        )}
                         <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                           Details
                         </button>
