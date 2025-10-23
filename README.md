@@ -115,6 +115,8 @@ fliq-app-1/
 - ✅ `/api/payments/webhook` - Paystack webhook handler
 - ✅ `/api/moderation/openai` - Content moderation
 - ✅ `/api/notifications` - Notification management
+- ✅ `/api/notifications/send` - Send notifications through multiple channels
+- ✅ `/api/notifications/reminders` - Process appointment reminders (cron job)
 
 All API routes include:
 - Comprehensive comments on preventing infinite loops
@@ -123,6 +125,21 @@ All API routes include:
 - Security best practices
 - CORS configuration
 - JWT authentication
+
+### Automated Notification System
+- ✅ Multi-channel notifications (in-app, email, push)
+- ✅ Automated notifications for key events:
+  - New booking requests
+  - Booking confirmations/cancellations
+  - New messages
+  - Appointment reminders (24h, 2h, 30min before)
+  - Payment notifications
+- ✅ Template-based notification system
+- ✅ User preference support
+- ✅ Real-time delivery via Pusher
+- ✅ Cron job for scheduled reminders
+
+See [docs/notification-system.md](docs/notification-system.md) for complete documentation.
 
 ## 🛠️ Setup
 
@@ -173,6 +190,13 @@ PUSHER_APP_ID=your_pusher_app_id
 PUSHER_SECRET=your_pusher_secret
 NEXT_PUBLIC_PUSHER_KEY=your_pusher_key
 NEXT_PUBLIC_PUSHER_CLUSTER=us2
+
+# Notifications (Optional)
+EMAIL_SERVICE_URL=your_email_service_url
+EMAIL_SERVICE_API_KEY=your_email_service_api_key
+EMAIL_FROM=notifications@fliq.app
+FCM_SERVER_KEY=your_fcm_server_key
+CRON_SECRET=your_random_cron_secret_key
 ```
 
 ### Development
