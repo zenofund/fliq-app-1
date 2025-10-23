@@ -119,6 +119,22 @@ export default function NotificationsDropdown() {
 
   const getNotificationColor = (type) => {
     switch (type) {
+      case 'booking_request':
+      case 'booking_confirmed':
+      case 'booking_accepted':
+        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+      case 'booking_rejected':
+      case 'booking_cancelled':
+        return 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+      case 'booking_completed':
+        return 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+      case 'new_message':
+        return 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+      case 'appointment_reminder':
+        return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400'
+      case 'payment_received':
+      case 'payment_failed':
+        return 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
       case 'booking':
         return 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
       case 'message':

@@ -29,6 +29,8 @@
  * - Implement rate limiting to prevent abuse
  */
 
+import { sendNotification, NOTIFICATION_TYPES } from '../../../lib/notifications'
+
 export default async function handler(req, res) {
   // Set CORS headers to prevent hanging requests
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -194,11 +196,33 @@ async function handleCreateBooking(req, res, user) {
       createdAt: new Date().toISOString()
     }
 
-    // TODO: Send notification to companion via Pusher/Supabase Realtime
-    // await sendNotification(companionId, {
-    //   type: 'new_booking',
-    //   bookingId: newBooking.id
-    // })
+    // Send notification to companion via Pusher/Supabase Realtime
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      
+      await sendNotification(
+        companionId,
+        NOTIFICATION_TYPES.BOOKING_REQUEST,
+        {
+          clientName: user.name || 'A client',
+          date,
+          time,
+          duration: durationNum,
+          location,
+          bookingUrl: `${appUrl}/companion/dashboard?booking=${newBooking.id}`
+        },
+        {
+          inApp: true,
+          email: true,
+          push: true,
+          userEmail: null, // TODO: Fetch companion email from database
+          pushToken: null
+        }
+      )
+    } catch (notificationError) {
+      // Log but don't fail the booking creation if notification fails
+      console.error('Failed to send booking notification:', notificationError)
+    }
 
     return res.status(201).json({
       message: 'Booking created successfully',
@@ -275,6 +299,17 @@ async function handleUpdateBooking(req, res, user) {
     // TODO: Update booking status
     // await db.query('UPDATE bookings SET status = ? WHERE id = ?', [newStatus, bookingId])
 
+    // Placeholder booking data - in production, fetch from database
+    const booking = {
+      id: bookingId,
+      userId: 'user123',
+      companionId: 'comp123',
+      date: '2024-01-20',
+      time: '18:00',
+      location: 'Downtown Restaurant',
+      status: newStatus
+    }
+
     // Handle payment based on action
     try {
       if (action === 'complete') {
@@ -322,22 +357,123 @@ async function handleUpdateBooking(req, res, user) {
       // TODO: Alert admin about payment issue
     }
 
-    // TODO: Send notifications to both parties
-    // Include chat availability status in notification
-    // const chatAvailable = ['accepted', 'confirmed'].includes(newStatus)
-    // await sendUserNotification(booking.userId, {
-    //   type: 'booking_update',
-    //   bookingId,
-    //   status: newStatus,
-    //   chatAvailable,
-    //   message: action === 'accept' 
-    //     ? 'Booking accepted! You can now chat with your companion.'
-    //     : action === 'complete'
-    //     ? 'Booking completed! Chat is now closed. Companion payment processed.'
-    //     : action === 'reject' || action === 'cancel' || action === 'expire'
-    //     ? 'Booking cancelled. Refund will be processed shortly.'
-    //     : `Booking ${action}ed`
-    // })
+    // Send notifications to both parties
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const chatAvailable = ['accepted', 'confirmed'].includes(newStatus)
+
+      // Determine notification type and recipients based on action
+      if (action === 'accept') {
+        // Notify client that booking was accepted
+        await sendNotification(
+          booking.userId,
+          NOTIFICATION_TYPES.BOOKING_ACCEPTED,
+          {
+            companionName: 'Your companion', // TODO: Fetch from database
+            date: booking.date,
+            time: booking.time,
+            location: booking.location,
+            chatUrl: `${appUrl}/client/dashboard?booking=${bookingId}&chat=true`
+          },
+          {
+            inApp: true,
+            email: true,
+            push: true,
+            userEmail: null, // TODO: Fetch from database
+            pushToken: null
+          }
+        )
+      } else if (action === 'reject') {
+        // Notify client that booking was rejected
+        await sendNotification(
+          booking.userId,
+          NOTIFICATION_TYPES.BOOKING_REJECTED,
+          {
+            date: booking.date,
+            time: booking.time,
+            searchUrl: `${appUrl}/client/dashboard`
+          },
+          {
+            inApp: true,
+            email: true,
+            push: true,
+            userEmail: null,
+            pushToken: null
+          }
+        )
+      } else if (action === 'cancel') {
+        // Notify companion that booking was cancelled
+        await sendNotification(
+          booking.companionId,
+          NOTIFICATION_TYPES.BOOKING_CANCELLED,
+          {
+            date: booking.date,
+            time: booking.time
+          },
+          {
+            inApp: true,
+            email: true,
+            push: true,
+            userEmail: null,
+            pushToken: null
+          }
+        )
+      } else if (action === 'complete') {
+        // Notify both parties that booking is completed
+        await sendNotification(
+          booking.userId,
+          NOTIFICATION_TYPES.BOOKING_COMPLETED,
+          {
+            companionName: 'Your companion',
+            reviewUrl: `${appUrl}/client/dashboard?booking=${bookingId}&review=true`
+          },
+          {
+            inApp: true,
+            email: true,
+            push: false,
+            userEmail: null,
+            pushToken: null
+          }
+        )
+
+        await sendNotification(
+          booking.companionId,
+          NOTIFICATION_TYPES.BOOKING_COMPLETED,
+          {
+            clientName: 'Your client',
+            reviewUrl: `${appUrl}/companion/dashboard?booking=${bookingId}&review=true`
+          },
+          {
+            inApp: true,
+            email: true,
+            push: false,
+            userEmail: null,
+            pushToken: null
+          }
+        )
+
+        // Send payment received notification to companion
+        await sendNotification(
+          booking.companionId,
+          NOTIFICATION_TYPES.PAYMENT_RECEIVED,
+          {
+            amount: '$100', // TODO: Get from booking
+            date: booking.date,
+            dashboardUrl: `${appUrl}/companion/dashboard`
+          },
+          {
+            inApp: true,
+            email: true,
+            push: false,
+            userEmail: null,
+            pushToken: null
+          }
+        )
+      }
+    } catch (notificationError) {
+      // Log but don't fail the booking update if notification fails
+      console.error('Failed to send booking update notification:', notificationError)
+    }
 
     return res.status(200).json({
       message: `Booking ${action}ed successfully`,
